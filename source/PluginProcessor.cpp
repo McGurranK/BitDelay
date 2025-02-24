@@ -12,18 +12,17 @@ BitDelayAudioProcessor::BitDelayAudioProcessor()
                      #endif
                        )
 {
-    delayTime = new juce::AudioParameterFloat ("DLTM", "Delay Time", juce::NormalisableRange<float> (1.0f, 48000.0f), 24000.f);
-    bitReduction = new juce::AudioParameterFloat ("BTRD", "Bit Rate", juce::NormalisableRange<float> (1.0f, 16.0f), 4.f);
+    delayTime = new juce::AudioParameterFloat ("DLTM", "Delay Time", juce::NormalisableRange<float> (2.0f, 48000.0f), 24000.f);
+    bitReduction = new juce::AudioParameterFloat ("BTRD", "Bit Rate", juce::NormalisableRange<float> (2.0f, 16.0f), 4.f);
+    feedbackAmount  = new juce::AudioParameterFloat ("FBAM", "Delay Feedback", juce::NormalisableRange<float> (0.0f, 1.0f), 0.5);
+    wetDryAmount  = new juce::AudioParameterFloat ("MIX", "Mix Amount", juce::NormalisableRange<float> (0.0f, 1.0f), 0.5);
 
     addParameter(delayTime);
     addParameter(bitReduction);
+    addParameter(feedbackAmount);
+    addParameter(wetDryAmount);
 }
 
-BitDelayAudioProcessor::~BitDelayAudioProcessor()
-{
-}
-
-//==============================================================================
 const juce::String BitDelayAudioProcessor::getName() const
 {
     return JucePlugin_Name;
@@ -100,11 +99,15 @@ void BitDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     delayLine.setMaximumDelayInSamples (48000);
     delayLine.setDelay (24000);
 
+    mixerProcessor.prepare (spec);
+    mixerProcessor.setWetMixProportion (wetDryAmount->get());
+
     delayTimeSmoothing.reset (sampleRate,0.01);
     bitRateSmoothing.reset (sampleRate,0.01);
 
     delayTimeSmoothing.setCurrentAndTargetValue (delayTime->get());
-    bitRateSmoothing.setCurrentAndTargetValue (delayTime->get());
+    bitRateSmoothing.setCurrentAndTargetValue (16.f);
+    feedbackSmoothing.setCurrentAndTargetValue (0.5f);
 }
 
 void BitDelayAudioProcessor::releaseResources()
@@ -147,6 +150,11 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     delayTimeSmoothing.setTargetValue (delayTime->get());
     bitRateSmoothing.setTargetValue ( bitReduction->get());
+    feedbackSmoothing.setTargetValue ( feedbackAmount->get());
+
+    mixerProcessor.setWetMixProportion (wetDryAmount->get());
+
+    mixerProcessor.pushDrySamples (buffer);
 
     for (int channelIndex =0; channelIndex < numberOfChannels; channelIndex++)
     {
@@ -156,7 +164,7 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             const auto bitReductionMultiplier = std::pow (2.f, bitRateSmoothing.getNextValue());
 
-            auto delayedSample = delayLine.popSample (channelIndex, delayTimeSmoothing.getNextValue()) * 0.9f;
+            auto delayedSample = delayLine.popSample (channelIndex, delayTimeSmoothing.getNextValue()) * feedbackSmoothing.getNextValue();
 
             // Reduction of bit rate after popping sample
             delayedSample *= bitReductionMultiplier;
@@ -168,6 +176,8 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             delayLine.pushSample (channelIndex, channelPointer[sampleIndex]);
         }
     }
+
+    mixerProcessor.mixWetSamples (buffer);
 }
 
 //==============================================================================
@@ -178,7 +188,8 @@ bool BitDelayAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
 {
-    return new AudioPluginAudioProcessorEditor (*this);
+    return new juce::GenericAudioProcessorEditor (*this);
+    //return new AudioPluginAudioProcessorEditor (*this);
 }
 
 //==============================================================================
@@ -197,8 +208,6 @@ void BitDelayAudioProcessor::setStateInformation (const void* data, int sizeInBy
     juce::ignoreUnused (data, sizeInBytes);
 }
 
-//==============================================================================
-// This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new BitDelayAudioProcessor();

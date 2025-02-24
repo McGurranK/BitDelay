@@ -10,7 +10,7 @@ class BitDelayAudioProcessor final : public juce::AudioProcessor
 public:
 
     BitDelayAudioProcessor();
-    ~BitDelayAudioProcessor() override;
+    ~BitDelayAudioProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -41,12 +41,16 @@ public:
 
     juce::AudioParameterFloat* delayTime;
     juce::AudioParameterFloat* bitReduction;
+    juce::AudioParameterFloat* feedbackAmount;
+    juce::AudioParameterFloat* wetDryAmount;
 
 private:
     juce::SmoothedValue<float> delayTimeSmoothing;
     juce::SmoothedValue<float> bitRateSmoothing;
+    juce::SmoothedValue<float> feedbackSmoothing;
 
     juce::dsp::DelayLine<float> delayLine;
+    juce::dsp::DryWetMixer<float> mixerProcessor;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BitDelayAudioProcessor)
 };
