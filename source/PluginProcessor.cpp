@@ -1,15 +1,10 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
 BitDelayAudioProcessor::BitDelayAudioProcessor()
      : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
                        )
 {
     delayTime = new juce::AudioParameterFloat ("DLTM", "Delay Time", juce::NormalisableRange<float> (2.0f, 48000.0f), 24000.f);
@@ -30,29 +25,17 @@ const juce::String BitDelayAudioProcessor::getName() const
 
 bool BitDelayAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
-    return true;
-   #else
     return false;
-   #endif
 }
 
 bool BitDelayAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
     return false;
-   #endif
 }
 
 bool BitDelayAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
-    return true;
-   #else
     return false;
-   #endif
 }
 
 double BitDelayAudioProcessor::getTailLengthSeconds() const
@@ -104,6 +87,7 @@ void BitDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
 
     delayTimeSmoothing.reset (sampleRate,0.01);
     bitRateSmoothing.reset (sampleRate,0.01);
+    feedbackSmoothing.reset (sampleRate,0.01);
 
     delayTimeSmoothing.setCurrentAndTargetValue (delayTime->get());
     bitRateSmoothing.setCurrentAndTargetValue (16.f);
@@ -112,32 +96,18 @@ void BitDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
 
 void BitDelayAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
 }
 
 bool BitDelayAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
 
     return true;
-  #endif
 }
 
 void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -153,7 +123,6 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     feedbackSmoothing.setTargetValue ( feedbackAmount->get());
 
     mixerProcessor.setWetMixProportion (wetDryAmount->get());
-
     mixerProcessor.pushDrySamples (buffer);
 
     for (int channelIndex =0; channelIndex < numberOfChannels; channelIndex++)
@@ -164,7 +133,7 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             const auto bitReductionMultiplier = std::pow (2.f, bitRateSmoothing.getNextValue());
 
-            auto delayedSample = delayLine.popSample (channelIndex, delayTimeSmoothing.getNextValue()) * feedbackSmoothing.getNextValue();
+            auto delayedSample = delayLine.popSample (channelIndex, delayTimeSmoothing.getNextValue());
 
             // Reduction of bit rate after popping sample
             delayedSample *= bitReductionMultiplier;
@@ -173,7 +142,7 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             channelPointer[sampleIndex] += delayedSample;
 
-            delayLine.pushSample (channelIndex, channelPointer[sampleIndex]);
+            delayLine.pushSample (channelIndex, channelPointer[sampleIndex] * feedbackSmoothing.getNextValue());
         }
     }
 
@@ -183,7 +152,7 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 //==============================================================================
 bool BitDelayAudioProcessor::hasEditor() const
 {
-    return true; // (change this to false if you choose to not supply an editor)
+    return true;
 }
 
 juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
@@ -195,17 +164,10 @@ juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
 //==============================================================================
 void BitDelayAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused (destData);
 }
 
 void BitDelayAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused (data, sizeInBytes);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

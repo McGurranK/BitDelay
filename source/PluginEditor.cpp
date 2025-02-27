@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 
 
-AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (BitDelayAudioProcessor& p)
+BitDelayEditor::BitDelayEditor (BitDelayAudioProcessor& p)
     : AudioProcessorEditor (&p)
     , processorRef (p)
 {
@@ -17,13 +17,12 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (BitDelayAudioP
     setSize (400, 300);
 }
 
-void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
+void BitDelayEditor::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 }
 
-void AudioPluginAudioProcessorEditor::resized()
+void BitDelayEditor::resized()
 {
     auto bounds = getLocalBounds();
     delayTime.setBounds (bounds.removeFromLeft (static_cast<int>(bounds.getWidth() * 0.5)));
