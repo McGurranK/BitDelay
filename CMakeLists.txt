@@ -18,8 +18,10 @@ juce_add_plugin(BitDelay
 set(SourceFiles
 	source/PluginEditor.h
 	source/PluginProcessor.h
+	source/BitDelaySliderGroup.h
 	source/PluginEditor.cpp
-	source/PluginProcessor.cpp)
+	source/PluginProcessor.cpp
+	source/BitDelaySliderGroup.cpp)
 
 target_sources(BitDelay PRIVATE ${SourceFiles})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/source PREFIX Source FILES ${SourceFiles})

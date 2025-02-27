@@ -1,7 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-
 BitDelayEditor::BitDelayEditor (BitDelayAudioProcessor& p)
     : AudioProcessorEditor (&p)
     , bitDelaySlidersGroup (p)
