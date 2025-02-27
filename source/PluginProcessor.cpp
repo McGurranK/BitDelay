@@ -157,8 +157,7 @@ bool BitDelayAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor (*this);
-    //return new AudioPluginAudioProcessorEditor (*this);
+    return new BitDelayEditor (*this);
 }
 
 //==============================================================================
