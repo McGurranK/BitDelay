@@ -14,7 +14,7 @@ BitDelaySlidersGroup::BitDelaySlidersGroup (const BitDelayAudioProcessor& Proces
     mixSliderAttachment = std::make_unique<juce::SliderParameterAttachment>(dynamic_cast<juce::RangedAudioParameter&> (*ProcessorRef.wetDryAmount), mixSlider);
 }
 
-void BitDelaySlidersGroup::resized() override
+void BitDelaySlidersGroup::resized()
 {
     auto bounds = getLocalBounds().toFloat();
     const auto sliderWidth = bounds.getWidth() * 0.25f;

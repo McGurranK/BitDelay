@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 project (BitDelay VERSION 0.0.1)
 
 add_subdirectory(JUCE)
+juce_add_module (Buffering)
 
 juce_add_plugin(BitDelay
     COMPANY_NAME Devekusu Devices               # Specify the name of the plugin's author
@@ -12,7 +13,7 @@ juce_add_plugin(BitDelay
     PLUGIN_MANUFACTURER_CODE DXKU               # A four-character manufacturer id with at least one upper-case character
     PLUGIN_CODE BTDL                            # A unique four-character plugin id with exactly one upper-case character
                                                 # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
-    FORMATS AU VST3                  # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
+    FORMATS AU VST3 Standalone Unity                 # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
     PRODUCT_NAME "Bit Delay")        # The name of the final executable, which can differ from the target name
 
 set(SourceFiles
@@ -36,6 +37,7 @@ target_compile_definitions(BitDelay
 target_link_libraries(BitDelay
 PUBLIC
         juce::juce_audio_utils
+		Buffering
 		juce::juce_dsp
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
