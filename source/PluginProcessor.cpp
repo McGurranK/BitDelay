@@ -1,188 +1,175 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
-AudioPluginAudioProcessor::AudioPluginAudioProcessor()
+BitDelayAudioProcessor::BitDelayAudioProcessor()
      : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
                        )
 {
+    delayTime = new juce::AudioParameterFloat ("DLTM", "Delay Time", juce::NormalisableRange<float> (2.0f, 48000.0f), 24000.f);
+    bitReduction = new juce::AudioParameterFloat ("BTRD", "Bit Rate", juce::NormalisableRange<float> (2.0f, 16.0f), 4.f);
+    feedbackAmount  = new juce::AudioParameterFloat ("FBAM", "Delay Feedback", juce::NormalisableRange<float> (0.0f, 1.0f), 0.5);
+    wetDryAmount  = new juce::AudioParameterFloat ("MIX", "Mix Amount", juce::NormalisableRange<float> (0.0f, 1.0f), 0.5);
+
+    addParameter(delayTime);
+    addParameter(bitReduction);
+    addParameter(feedbackAmount);
+    addParameter(wetDryAmount);
 }
 
-AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
-{
-}
-
-//==============================================================================
-const juce::String AudioPluginAudioProcessor::getName() const
+const juce::String BitDelayAudioProcessor::getName() const
 {
     return JucePlugin_Name;
 }
 
-bool AudioPluginAudioProcessor::acceptsMidi() const
+bool BitDelayAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
-    return true;
-   #else
     return false;
-   #endif
 }
 
-bool AudioPluginAudioProcessor::producesMidi() const
+bool BitDelayAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
     return false;
-   #endif
 }
 
-bool AudioPluginAudioProcessor::isMidiEffect() const
+bool BitDelayAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
-    return true;
-   #else
     return false;
-   #endif
 }
 
-double AudioPluginAudioProcessor::getTailLengthSeconds() const
+double BitDelayAudioProcessor::getTailLengthSeconds() const
 {
     return 0.0;
 }
 
-int AudioPluginAudioProcessor::getNumPrograms()
+int BitDelayAudioProcessor::getNumPrograms()
 {
     return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
                 // so this should be at least 1, even if you're not really implementing programs.
 }
 
-int AudioPluginAudioProcessor::getCurrentProgram()
+int BitDelayAudioProcessor::getCurrentProgram()
 {
     return 0;
 }
 
-void AudioPluginAudioProcessor::setCurrentProgram (int index)
+void BitDelayAudioProcessor::setCurrentProgram (int index)
 {
     juce::ignoreUnused (index);
 }
 
-const juce::String AudioPluginAudioProcessor::getProgramName (int index)
+const juce::String BitDelayAudioProcessor::getProgramName (int index)
 {
     juce::ignoreUnused (index);
     return {};
 }
 
-void AudioPluginAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void BitDelayAudioProcessor::changeProgramName (int index, const juce::String& newName)
 {
     juce::ignoreUnused (index, newName);
 }
 
 //==============================================================================
-void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void BitDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
-    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    juce::dsp::ProcessSpec spec;
+    spec.numChannels = static_cast<uint32_t>(getTotalNumInputChannels());
+    spec.maximumBlockSize = static_cast<uint32_t>(samplesPerBlock);
+    spec.sampleRate = sampleRate;
+
+    delayLine.prepare (spec);
+    delayLine.setMaximumDelayInSamples (48000);
+    delayLine.setDelay (24000);
+
+    mixerProcessor.prepare (spec);
+    mixerProcessor.setWetMixProportion (wetDryAmount->get());
+
+    delayTimeSmoothing.reset (sampleRate,0.01);
+    bitRateSmoothing.reset (sampleRate,0.01);
+    feedbackSmoothing.reset (sampleRate,0.01);
+
+    delayTimeSmoothing.setCurrentAndTargetValue (delayTime->get());
+    bitRateSmoothing.setCurrentAndTargetValue (16.f);
+    feedbackSmoothing.setCurrentAndTargetValue (0.5f);
 }
 
-void AudioPluginAudioProcessor::releaseResources()
+void BitDelayAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
 }
 
-bool AudioPluginAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool BitDelayAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
 
     return true;
-  #endif
 }
 
-void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& midiMessages)
 {
     juce::ignoreUnused (midiMessages);
 
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+    const auto numberOfChannels = buffer.getNumChannels();
+    const auto numberOfSamples = buffer.getNumSamples();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    delayTimeSmoothing.setTargetValue (delayTime->get());
+    bitRateSmoothing.setTargetValue ( bitReduction->get());
+    feedbackSmoothing.setTargetValue ( feedbackAmount->get());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    mixerProcessor.setWetMixProportion (wetDryAmount->get());
+    mixerProcessor.pushDrySamples (buffer);
+
+    for (int channelIndex =0; channelIndex < numberOfChannels; channelIndex++)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
-        // ..do something to the data...
+        auto* channelPointer = buffer.getWritePointer (channelIndex);
+
+        for (int sampleIndex = 0; sampleIndex < numberOfSamples; sampleIndex++)
+        {
+            const auto bitReductionMultiplier = std::pow (2.f, bitRateSmoothing.getNextValue());
+
+            auto delayedSample = delayLine.popSample (channelIndex, delayTimeSmoothing.getNextValue());
+
+            // Reduction of bit rate after popping sample
+            delayedSample *= bitReductionMultiplier;
+            delayedSample = std::round (delayedSample);
+            delayedSample /= bitReductionMultiplier;
+
+            channelPointer[sampleIndex] += delayedSample;
+
+            delayLine.pushSample (channelIndex, channelPointer[sampleIndex] * feedbackSmoothing.getNextValue());
+        }
     }
+
+    mixerProcessor.mixWetSamples (buffer);
 }
 
 //==============================================================================
-bool AudioPluginAudioProcessor::hasEditor() const
+bool BitDelayAudioProcessor::hasEditor() const
 {
-    return true; // (change this to false if you choose to not supply an editor)
+    return true;
 }
 
-juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
+juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
 {
-    return new AudioPluginAudioProcessorEditor (*this);
-}
-
-//==============================================================================
-void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
-{
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused (destData);
-}
-
-void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
-{
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused (data, sizeInBytes);
+    return new BitDelayEditor (*this);
 }
 
 //==============================================================================
-// This creates new instances of the plugin..
+void BitDelayAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+}
+
+void BitDelayAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+}
+
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new AudioPluginAudioProcessor();
+    return new BitDelayAudioProcessor();
 }
