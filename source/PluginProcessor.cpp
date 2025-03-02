@@ -6,6 +6,7 @@ BitDelayAudioProcessor::BitDelayAudioProcessor()
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                        )
+    , stateLoading (*this)
 {
     delayTime = new juce::AudioParameterFloat ("DLTM", "Delay Time", juce::NormalisableRange<float> (2.0f, 48000.0f), 24000.f);
     bitReduction = new juce::AudioParameterFloat ("BTRD", "Bit Rate", juce::NormalisableRange<float> (2.0f, 16.0f), 4.f);
@@ -16,6 +17,8 @@ BitDelayAudioProcessor::BitDelayAudioProcessor()
     addParameter(bitReduction);
     addParameter(feedbackAmount);
     addParameter(wetDryAmount);
+
+    getParameters();
 }
 
 const juce::String BitDelayAudioProcessor::getName() const
@@ -73,7 +76,7 @@ void BitDelayAudioProcessor::changeProgramName (int index, const juce::String& n
 //==============================================================================
 void BitDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    juce::dsp::ProcessSpec spec;
+    juce::dsp::ProcessSpec spec{};
     spec.numChannels = static_cast<uint32_t>(getTotalNumInputChannels());
     spec.maximumBlockSize = static_cast<uint32_t>(samplesPerBlock);
     spec.sampleRate = sampleRate;
@@ -163,10 +166,12 @@ juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
 //==============================================================================
 void BitDelayAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    stateLoading.getStateInformation (destData);
 }
 
 void BitDelayAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    stateLoading.setParameterInformation (data, sizeInBytes);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

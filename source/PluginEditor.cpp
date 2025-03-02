@@ -3,8 +3,8 @@
 
 BitDelayEditor::BitDelayEditor (BitDelayAudioProcessor& p)
     : AudioProcessorEditor (&p)
-    , bitDelaySlidersGroup (p)
     , processorRef (p)
+    , bitDelaySlidersGroup (p)
 {
     addAndMakeVisible (&bitDelaySlidersGroup);
 

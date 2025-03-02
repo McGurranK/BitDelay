@@ -35,13 +35,15 @@ private:
         const auto samplesRead = fifoRef.WriteSamples (pollingBuffer);
         pollingBuffer.setSize (pollingBuffer.getNumChannels(), samplesRead, true, false, true);
 
-        delayBuffer.writeSamples (pollingBuffer);
+        // delayBuffer.writeSamples (pollingBuffer);
 
         repaint();
     }
 
     void paint (juce::Graphics& GraphicsRef) override
-    {}
+    {
+        juce::ignoreUnused (GraphicsRef);
+    }
 
     double currentSampleRate { 0.0 };
     int currentNumberOfChannels { 0};
@@ -51,7 +53,7 @@ private:
     juce::AudioBuffer<float> pollingBuffer;
 
     LockFreeFifo& fifoRef;
-    CircularBuffer<float> delayBuffer;
+    CircularBuffer delayBuffer;
 
     std::unique_ptr<juce::VBlankAttachment> vBlankAttachmentPtr;
 };

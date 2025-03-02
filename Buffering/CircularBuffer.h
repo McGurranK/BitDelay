@@ -10,10 +10,8 @@ public:
 
     void unwindCircularBuffer (const juce::AudioBuffer<float>& BufferRef)
     {
-        const auto bufferSize = BufferRef.getNumSamples();
-
-
-
+        juce::ignoreUnused (BufferRef);
+        // Todo : Add unwinding
     }
 
 private:

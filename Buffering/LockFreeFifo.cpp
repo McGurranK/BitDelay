@@ -11,7 +11,7 @@ void LockFreeFifo::readSamples (const juce::AudioBuffer<float>& BufferRef)
     auto updateBuffer = [&](int StartPosition, int BufferSize, int ReadOffset)
     {
         for (int channelIndex = 0; channelIndex < buffer.getNumSamples(); ++channelIndex)
-            buffer.copyFrom (channelIndex, StartPosition, BufferRef.getReadPointer(channelIndex), BufferSize);
+            buffer.copyFrom (channelIndex, StartPosition, BufferRef.getReadPointer(channelIndex), ReadOffset);
     };
 
     if (readContext.blockSize1 < 0)

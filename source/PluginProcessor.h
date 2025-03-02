@@ -5,6 +5,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <Buffering/Buffering.h>
+#include <PluginFundamentals/PluginFundamentals.h>
 
 class BitDelayAudioProcessor final : public juce::AudioProcessor
 {
@@ -52,6 +53,8 @@ private:
 
     juce::dsp::DelayLine<float> delayLine;
     juce::dsp::DryWetMixer<float> mixerProcessor;
+
+    BasicStateLoading stateLoading;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BitDelayAudioProcessor)
 };

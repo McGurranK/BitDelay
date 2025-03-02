@@ -4,6 +4,7 @@ project (BitDelay VERSION 0.0.1)
 
 add_subdirectory(JUCE)
 juce_add_module (Buffering)
+juce_add_module (PluginFundamentals)
 
 juce_add_plugin(BitDelay
     COMPANY_NAME Devekusu Devices               # Specify the name of the plugin's author
@@ -38,6 +39,7 @@ target_link_libraries(BitDelay
 PUBLIC
         juce::juce_audio_utils
 		Buffering
+		PluginFundamentals
 		juce::juce_dsp
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
