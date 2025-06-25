@@ -17,8 +17,6 @@ BitDelayAudioProcessor::BitDelayAudioProcessor()
     addParameter(bitReduction);
     addParameter(feedbackAmount);
     addParameter(wetDryAmount);
-
-    getParameters();
 }
 
 const juce::String BitDelayAudioProcessor::getName() const
@@ -48,8 +46,7 @@ double BitDelayAudioProcessor::getTailLengthSeconds() const
 
 int BitDelayAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+    return 1;
 }
 
 int BitDelayAudioProcessor::getCurrentProgram()
@@ -73,7 +70,6 @@ void BitDelayAudioProcessor::changeProgramName (int index, const juce::String& n
     juce::ignoreUnused (index, newName);
 }
 
-//==============================================================================
 void BitDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     juce::dsp::ProcessSpec spec{};
@@ -138,12 +134,14 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             auto delayedSample = delayLine.popSample (channelIndex, delayTimeSmoothing.getNextValue());
 
-            // Reduction of bit rate after popping sample
-            delayedSample *= bitReductionMultiplier;
-            delayedSample = std::round (delayedSample);
-            delayedSample /= bitReductionMultiplier;
+            auto outputSample = channelPointer[sampleIndex] + delayedSample;
 
-            channelPointer[sampleIndex] += delayedSample;
+            // Reduction of bit rate after popping sample
+            outputSample *= bitReductionMultiplier;
+            outputSample = std::round (outputSample);
+            outputSample /= bitReductionMultiplier;
+
+            channelPointer[sampleIndex] = outputSample;
 
             delayLine.pushSample (channelIndex, channelPointer[sampleIndex] * feedbackSmoothing.getNextValue());
         }
@@ -152,7 +150,6 @@ void BitDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     mixerProcessor.mixWetSamples (buffer);
 }
 
-//==============================================================================
 bool BitDelayAudioProcessor::hasEditor() const
 {
     return true;
@@ -163,7 +160,6 @@ juce::AudioProcessorEditor* BitDelayAudioProcessor::createEditor()
     return new BitDelayEditor (*this);
 }
 
-//==============================================================================
 void BitDelayAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     stateLoading.getStateInformation (destData);

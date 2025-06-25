@@ -8,6 +8,8 @@ BitDelayEditor::BitDelayEditor (BitDelayAudioProcessor& p)
 {
     addAndMakeVisible (&bitDelaySlidersGroup);
 
+    setLookAndFeel (&bitLookAndFeel);
+
     setSize (400, 300);
     setResizable (false, true);
     setResizeLimits (400, 300, 1200, 900);

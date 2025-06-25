@@ -10,7 +10,6 @@
 class BitDelayAudioProcessor final : public juce::AudioProcessor
 {
 public:
-
     BitDelayAudioProcessor();
     ~BitDelayAudioProcessor() override = default;
 
